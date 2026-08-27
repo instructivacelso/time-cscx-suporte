@@ -561,3 +561,31 @@ export async function seedDemoAction() {
     return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+/**
+ * Zera a base: apaga alunos, cursos, pesquisas, alertas e todo o histórico,
+ * mantendo apenas as contas de acesso. Usado para sair dos dados de
+ * demonstração e começar a operação de verdade.
+ */
+export async function clearDatabaseAction(confirmacao: string) {
+  const session = await requireSession();
+  if (session.role !== 'ADMIN') throw new Error('FORBIDDEN');
+  if (confirmacao.trim().toUpperCase() !== 'LIMPAR') {
+    return { ok: false as const, error: 'Digite LIMPAR para confirmar.' };
+  }
+
+  const { clearAllData } = await import('@/server/demo-seed');
+  try {
+    await clearAllData();
+    await recordAudit({
+      action: 'LIMPEZA',
+      entity: 'database',
+      summary: 'Base zerada: alunos, cursos, pesquisas e histórico apagados',
+    });
+    revalidatePath('/dashboard');
+    revalidatePath('/alunos');
+    return { ok: true as const };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
+  }
+}

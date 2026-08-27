@@ -245,6 +245,32 @@ async function reset(keepUsers: boolean) {
   );
 }
 
+/**
+ * Apaga todos os dados operacionais e devolve o sistema ao estado de fábrica:
+ * sem alunos, cursos, pesquisas, alertas nem histórico. As contas de acesso
+ * são preservadas, e a configuração do Health Score, o catálogo de integrações
+ * e as automações padrão são recriados — sem eles o sistema não funciona.
+ */
+export async function clearAllData() {
+  await reset(true);
+
+  await db
+    .insert(healthScoreConfig)
+    .values({ id: 'default', weights: DEFAULT_WEIGHTS, thresholds: DEFAULT_THRESHOLDS })
+    .onConflictDoNothing();
+
+  await db.insert(integrations).values(
+    INTEGRATION_CATALOG.map((i) => ({
+      kind: i.kind as never,
+      name: i.name,
+      status: 'NAO_CONFIGURADA' as const,
+      config: { envKeys: i.envKeys, category: i.category, description: i.description } as never,
+    })),
+  );
+
+  await ensureDefaultAutomations();
+}
+
 export interface SeedResult {
   usuarios: number;
   cursos: number;

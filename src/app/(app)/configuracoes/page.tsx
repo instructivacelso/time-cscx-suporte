@@ -9,11 +9,13 @@ import {
 import { HEALTH_BAND_EMOJI, HEALTH_BAND_LABELS } from '@/lib/constants';
 import { resetHealthConfigAction, saveHealthConfigAction } from '@/app/actions';
 import { RoutineButton } from './routine-button';
+import { ClearDatabaseButton } from './clear-database';
+import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const { weights, thresholds } = await getHealthConfig();
+  const [{ weights, thresholds }, session] = await Promise.all([getHealthConfig(), getSession()]);
   const keys = Object.keys(DEFAULT_WEIGHTS) as HealthIndicatorKey[];
   const total = keys.reduce((s, k) => s + (weights[k] ?? 0), 0);
 
@@ -109,6 +111,20 @@ export default async function SettingsPage() {
               <code className="rounded bg-surface-3 px-1 py-0.5">CRON_SECRET</code>.
             </p>
           </Card>
+
+          {session?.role === 'ADMIN' && (
+            <Card>
+              <SectionTitle
+                title="Dados do sistema"
+                description="Use quando terminar de conhecer o sistema com os dados de demonstração e for começar a operação real."
+              />
+              <ClearDatabaseButton />
+              <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
+                Depois de limpar, cadastre os alunos reais em <strong>Alunos → Novo aluno</strong>{' '}
+                ou importe pela API de integração.
+              </p>
+            </Card>
+          )}
 
           <Card>
             <SectionTitle title="Como a nota é calculada" />
