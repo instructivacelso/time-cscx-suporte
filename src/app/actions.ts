@@ -536,3 +536,28 @@ export async function assistantAnalyzeAction(scope: 'NPS' | 'CSAT' | 'HEALTH' | 
           : bundle.metrics;
   return analyzeIndicators({ scope, data });
 }
+
+/* ── Base de demonstração ──────────────────────────────── */
+
+export async function seedDemoAction() {
+  const session = await requireSession();
+  if (session.role !== 'ADMIN') throw new Error('FORBIDDEN');
+
+  const { seedDemoData } = await import('@/server/demo-seed');
+  try {
+    // keepUsers preserva a conta de quem está executando — a sessão continua válida.
+    const r = await seedDemoData({ reset: true, keepUsers: true });
+    await recordAudit({
+      action: 'SEED',
+      entity: 'database',
+      summary: `Base de demonstração populada: ${r.alunos} alunos, ${r.cursos} cursos`,
+    });
+    // A carga de demonstração recria a equipe, então a sessão atual aponta para
+    // um usuário que não existe mais — encerrar evita erros de chave estrangeira.
+    revalidatePath('/dashboard');
+    revalidatePath('/alunos');
+    return { ok: true as const, ...r };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
+  }
+}

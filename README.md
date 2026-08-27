@@ -125,10 +125,13 @@ falha de *cache mount* do builder (`runc run failed ... error mounting`).
    a imagem e quebra o deploy — se existir um, remova em *Settings → Volumes*.
 5. **Gere o domínio**: *Settings → Networking → Generate Domain*. Sem isso o
    serviço fica como *Unexposed* e não abre no navegador.
-6. **Popular a base** (opcional, só na primeira vez):
-   ```bash
-   railway run npm run db:seed
-   ```
+6. **Entre no sistema.** Na primeira subida o CSCX cria sozinho o usuário
+   administrador — por padrão `admin@escolainstructiva.com.br` com a senha
+   `cscx2026` (mude com as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD`).
+   Troque a senha logo no primeiro acesso, em **Equipe**.
+7. **Popular a base** (opcional): entre como administrador e clique em
+   *Popular com dados de demonstração*, no aviso que aparece no painel enquanto
+   não houver alunos. Pela linha de comando o equivalente é `npm run db:seed`.
 7. **Rotina diária**: crie um *Cron* chamando
    `POST https://<seu-app>.up.railway.app/api/cron/rotina` com o header
    `x-cron-key: $CRON_SECRET`, uma vez por dia
@@ -157,6 +160,23 @@ rm -rf node_modules
 NODE_ENV=production npm ci
 NODE_ENV=production npm run build
 ```
+
+### Diagnóstico rápido
+
+`GET /api/health` responde, sem autenticação e sem expor nada sensível:
+
+```json
+{
+  "status": "ok",
+  "banco": "conectado",
+  "schema": "aplicado",
+  "registros": { "usuarios": 1, "alunos": 0, "cursos": 0 },
+  "variaveis": { "DATABASE_URL": true, "AUTH_SECRET": true }
+}
+```
+
+É o primeiro lugar a olhar quando alguma tela dá erro: mostra se o banco
+respondeu, se o schema foi aplicado e se já existe usuário para entrar.
 
 Todas as dependências necessárias ao build (TypeScript, Tailwind, PostCSS,
 drizzle-kit) estão em `dependencies`, e não em `devDependencies` — assim o build

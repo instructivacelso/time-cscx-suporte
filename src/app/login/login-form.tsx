@@ -4,18 +4,11 @@ import { useActionState, useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { loginAction } from './actions';
 
-const DEMO = [
-  { role: 'Administrador', email: 'admin@escolainstructiva.com.br' },
-  { role: 'Coordenador CSCX', email: 'coordenacao@escolainstructiva.com.br' },
-  { role: 'Analista CSCX', email: 'analista@escolainstructiva.com.br' },
-  { role: 'Aluno', email: 'aluno@exemplo.com.br' },
-];
-
 export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, null as { error?: string } | null);
   const [show, setShow] = useState(false);
-  const [email, setEmail] = useState('admin@escolainstructiva.com.br');
-  const [open, setOpen] = useState(false);
+  // Mantém o e-mail digitado quando a senha erra e o formulário volta.
+  const [email, setEmail] = useState('');
 
   return (
     <form action={action} className="space-y-4">
@@ -29,8 +22,9 @@ export function LoginForm() {
             id="email"
             name="email"
             type="email"
-            autoComplete="email"
+            autoComplete="username"
             required
+            autoFocus
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="input py-2.5 pl-10"
@@ -51,7 +45,6 @@ export function LoginForm() {
             type={show ? 'text' : 'password'}
             autoComplete="current-password"
             required
-            defaultValue="cscx2026"
             className="input py-2.5 pl-10 pr-11"
             placeholder="Sua senha"
           />
@@ -86,35 +79,6 @@ export function LoginForm() {
       <p className="text-center text-xs text-ink-500">
         Esqueceu a senha? Fale com o administrador do CSCX.
       </p>
-
-      <div className="rounded-xl border border-line bg-surface-2/70 p-3">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex w-full items-center justify-between text-xs font-medium text-ink-600 hover:text-ink-900"
-        >
-          Acessos de demonstração
-          <span className="text-ink-400">{open ? '−' : '+'}</span>
-        </button>
-
-        {open && (
-          <ul className="mt-2.5 space-y-1.5">
-            {DEMO.map((d) => (
-              <li key={d.email}>
-                <button
-                  type="button"
-                  onClick={() => setEmail(d.email)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition hover:bg-surface"
-                >
-                  <span className="shrink-0 text-ink-500">{d.role}</span>
-                  <code className="truncate text-[11px] text-ink-700">{d.email}</code>
-                </button>
-              </li>
-            ))}
-            <li className="px-2 pt-1 text-[11px] text-ink-400">Senha de demonstração: cscx2026</li>
-          </ul>
-        )}
-      </div>
     </form>
   );
 }

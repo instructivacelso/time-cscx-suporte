@@ -23,6 +23,8 @@ import {
   NpsTrendChart,
 } from '@/components/charts';
 import { getDashboardBundle } from '@/server/metrics-service';
+import { EmptyDatabaseNotice } from '@/components/empty-database';
+import { getSession } from '@/lib/auth';
 import { getHealthDistribution } from '@/server/health-service';
 import { listStudents } from '@/server/student-service';
 import { money, num, pct } from '@/lib/format';
@@ -30,13 +32,15 @@ import { money, num, pct } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const [bundle, distribution, atRisk] = await Promise.all([
+  const [bundle, distribution, atRisk, session] = await Promise.all([
     getDashboardBundle(),
     getHealthDistribution(),
     listStudents({ onlyAtRisk: true, limit: 8, orderBy: 'risk' }),
+    getSession(),
   ]);
 
   const m = bundle.metrics;
+  const baseVazia = m.totalStudents === 0;
 
   return (
     <>
@@ -49,6 +53,8 @@ export default async function DashboardPage() {
           </Link>
         }
       />
+
+      {baseVazia && <EmptyDatabaseNotice isAdmin={session?.role === 'ADMIN'} />}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <KpiCard

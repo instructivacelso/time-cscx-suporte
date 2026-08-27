@@ -2,15 +2,18 @@
  * Inicialização do CSCX em produção (Railway, Docker ou servidor próprio).
  *
  * 1. Aplica o schema no PostgreSQL (drizzle-kit push) — idempotente.
- * 2. Sobe o Next.js na porta informada pela plataforma.
+ * 2. Prepara a base: cria o administrador na primeira subida, garante a
+ *    configuração do Health Score, as integrações e as automações padrão.
+ * 3. Sobe o Next.js na porta informada pela plataforma.
  *
- * Se o push falhar, o processo NÃO aborta: o servidor sobe assim mesmo e o
- * erro fica registrado no log, o que é bem mais fácil de diagnosticar do que
- * um contêiner em ciclo de reinício.
+ * Nenhum passo aborta a subida: falhas são registradas no log e o servidor
+ * sobe assim mesmo, o que é bem mais fácil de diagnosticar do que um contêiner
+ * em ciclo de reinício.
  */
 import { spawn } from 'node:child_process';
 
 const PORT = process.env.PORT ?? '3000';
+const bin = (name) => `./node_modules/.bin/${name}`;
 
 function run(command, args, label) {
   return new Promise((resolve) => {
@@ -18,26 +21,25 @@ function run(command, args, label) {
     const child = spawn(command, args, { stdio: 'inherit', env: process.env, shell: false });
     child.on('close', (code) => resolve(code ?? 1));
     child.on('error', (err) => {
-      console.error(`✗ ${label} falhou ao iniciar:`, err.message);
+      console.error(`✗ ${label} falhou ao iniciar: ${err.message}`);
       resolve(1);
     });
   });
 }
 
-const bin = (name) => `./node_modules/.bin/${name}`;
-
 async function main() {
   if (!process.env.DATABASE_URL) {
     console.warn(
-      '⚠  DATABASE_URL não definida. Adicione o PostgreSQL ao projeto para que o CSCX funcione.',
+      '⚠  DATABASE_URL não definida. Adicione o PostgreSQL ao projeto e configure a variável.',
     );
   } else {
-    const code = await run(bin('drizzle-kit'), ['push', '--force'], 'Aplicando o schema no banco');
-    if (code !== 0) {
-      console.warn(
-        `⚠  drizzle-kit push terminou com código ${code}. O servidor vai subir mesmo assim — confira a DATABASE_URL.`,
-      );
+    const push = await run(bin('drizzle-kit'), ['push', '--force'], 'Aplicando o schema no banco');
+    if (push !== 0) {
+      console.warn(`⚠  drizzle-kit push terminou com código ${push}. Confira a DATABASE_URL.`);
     }
+
+    const boot = await run(bin('tsx'), ['scripts/bootstrap.ts'], 'Preparando a base');
+    if (boot !== 0) console.warn(`⚠  Bootstrap terminou com código ${boot}.`);
   }
 
   if (!process.env.AUTH_SECRET) {
