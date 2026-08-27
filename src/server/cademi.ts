@@ -85,7 +85,20 @@ export function lerPayload(body: unknown): CademiPayload {
   // não confundir o nome do aluno com o nome do curso.
   const blocoUsuario = buscar(body, ['user', 'usuario', 'aluno', 'cliente', 'customer', 'comprador']);
   const escopoUsuario = isObj(blocoUsuario) ? blocoUsuario : body;
-  const blocoProduto = buscar(body, ['produto', 'product', 'curso', 'course', 'entrega', 'turma', 'oferta']);
+  // A Cademí manda a entrega em `payload.delivery.name`; outras plataformas
+  // usam `product`, `curso`, `oferta`…
+  const blocoProduto = buscar(body, [
+    'delivery',
+    'produto',
+    'product',
+    'curso',
+    'course',
+    'entrega',
+    'oferta',
+    'offer',
+    'turma',
+    'plano',
+  ]);
 
   const acharNoUsuario = (nomes: string[]) => buscar(escopoUsuario, nomes) ?? buscar(body, nomes);
 
