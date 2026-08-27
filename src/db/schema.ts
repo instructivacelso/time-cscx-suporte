@@ -760,6 +760,30 @@ export const metricSnapshots = pgTable(
   (t) => ({ dateIdx: uniqueIndex('metric_date_idx').on(t.date) }),
 );
 
+/**
+ * Registro bruto de tudo que chega pelos webhooks (Cademí, gateways…).
+ * Guardar o corpo original permite conferir o formato real que a plataforma
+ * envia, reprocessar o que falhou e auditar de onde veio cada aluno.
+ */
+export const webhookEvents = pgTable(
+  'webhook_events',
+  {
+    id: id(),
+    source: text('source').notNull(),
+    eventType: text('event_type'),
+    email: text('email'),
+    studentId: text('student_id').references(() => students.id, { onDelete: 'set null' }),
+    status: text('status').default('RECEBIDO').notNull(),
+    message: text('message'),
+    payload: jsonb('payload').notNull(),
+    receivedAt: createdAt(),
+  },
+  (t) => ({
+    sourceIdx: index('webhook_source_idx').on(t.source),
+    receivedIdx: index('webhook_received_idx').on(t.receivedAt),
+  }),
+);
+
 // ───────────────────────── RELATIONS ─────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({

@@ -38,6 +38,11 @@ async function main() {
     return;
   }
 
+  // 1b. Repõe o que o "drizzle-kit push" pode ter deixado de criar ao parar
+  //     no primeiro erro (ver src/db/ensure-schema.ts).
+  const { ensureSchema } = await import('../src/db/ensure-schema');
+  await ensureSchema();
+
   // 2. Administrador
   const [{ total }] = (await db.execute(
     sql`select count(*)::int as total from users`,

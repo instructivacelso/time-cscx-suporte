@@ -145,9 +145,13 @@ export async function buildHealthInput(studentId: string): Promise<HealthInput |
     (p) => !p.paidAt && p.dueAt.getTime() < now,
   ).length;
 
+  const diasDesdeMatricula = Math.max(0, Math.floor((now - student.enrolledAt.getTime()) / DAY));
+
+  // Quem nunca acessou não está "999 dias sem acessar": está sem acessar desde
+  // que se matriculou. Sem isso, todo aluno novo nascia com alerta crítico.
   const daysWithoutAccess = student.lastAccessAt
     ? Math.max(0, Math.floor((now - student.lastAccessAt.getTime()) / DAY))
-    : 999;
+    : diasDesdeMatricula;
 
   return {
     onboardingPercent,
@@ -171,6 +175,7 @@ export async function buildHealthInput(studentId: string): Promise<HealthInput |
     mentorshipsOffered: mentorshipRows.length,
     mentorshipsAttended: mentorshipRows.filter((m) => m.attended).length,
     openComplaints: ticketRows.filter((t) => t.category.toLowerCase().includes('reclama')).length,
+    daysSinceEnrollment: diasDesdeMatricula,
   };
 }
 

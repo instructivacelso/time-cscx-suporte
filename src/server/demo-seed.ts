@@ -236,7 +236,7 @@ async function reset(keepUsers: boolean) {
     'survey_responses', 'health_snapshots', 'mentorship_attendances', 'study_activities',
     'onboarding_items', 'journey_events', 'payments', 'enrollments', 'class_groups',
     'modules', 'tracks', 'courses', 'students', 'playbooks', 'integrations',
-    'health_score_config', 'metric_snapshots',
+    'health_score_config', 'metric_snapshots', 'webhook_events',
   ];
   if (!keepUsers) tabelas.push('users');
 

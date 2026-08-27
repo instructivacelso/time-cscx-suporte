@@ -4,6 +4,8 @@ import { integrations } from '@/db/schema';
 import { INTEGRATION_CATALOG } from '@/lib/constants';
 import { formatDateTime } from '@/lib/format';
 import { updateIntegrationAction } from '@/app/actions';
+import { ultimosWebhooks } from '@/server/cademi';
+import { WebhookLog } from '@/components/webhook-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,8 +15,14 @@ function envStatus(keys: string[]) {
 }
 
 export default async function IntegrationsPage() {
-  const rows = await db.select().from(integrations).orderBy(integrations.name);
+  const [rows, webhooks] = await Promise.all([
+    db.select().from(integrations).orderBy(integrations.name),
+    ultimosWebhooks(10).catch(() => []),
+  ]);
   const byKind = new Map(rows.map((r) => [r.kind as string, r]));
+
+  const appUrl = process.env.APP_URL ?? 'https://SEU-APP.up.railway.app';
+  const segredoDefinido = Boolean(process.env.CADEMI_WEBHOOK_SECRET ?? process.env.API_KEY);
 
   const grouped = INTEGRATION_CATALOG.reduce<Record<string, typeof INTEGRATION_CATALOG>>(
     (acc, i) => {
@@ -107,6 +115,49 @@ export default async function IntegrationsPage() {
       </div>
 
       <Card className="mt-5">
+        <SectionTitle
+          title="Cademí — entrada automática de alunos"
+          description="Cada aluno liberado na Cademí (venda pela Green, Hotmart, TMB ou liberação manual) entra aqui sozinho e começa o onboarding."
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={segredoDefinido ? 'green' : 'amber'}>
+            {segredoDefinido ? 'chave definida' : 'aguardando CADEMI_WEBHOOK_SECRET'}
+          </Badge>
+          <Badge tone="ink">{webhooks.length} eventos recebidos (últimos 10)</Badge>
+        </div>
+
+        <p className="mt-3 text-xs text-ink-600">
+          Endereço para cadastrar em <strong>Cademí → engrenagem → Webhook → Novo webhook</strong>:
+        </p>
+        <code className="mt-1 block overflow-x-auto rounded-lg bg-surface-2 px-3 py-2 text-[11px] text-ink-800">
+          {appUrl}/api/webhooks/cademi?chave=SUA_CHAVE
+        </code>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
+          Troque <code className="rounded bg-surface-3 px-1">SUA_CHAVE</code> pelo valor de{' '}
+          <code className="rounded bg-surface-3 px-1">CADEMI_WEBHOOK_SECRET</code>. Cadastre a mesma
+          URL nos eventos <em>Usuário Criado</em>, <em>Entrega Adicionada</em>,{' '}
+          <em>Usuário Progresso</em>, <em>Certificado Emitido</em> e <em>Prova Aprovado</em>.
+        </p>
+
+        <div className="mt-4 border-t border-line pt-3">
+          <p className="label mb-1">Últimos webhooks recebidos</p>
+          <WebhookLog
+            rows={webhooks.map((w) => ({
+              id: w.id,
+              source: w.source,
+              eventType: w.eventType,
+              email: w.email,
+              status: w.status,
+              message: w.message,
+              payload: w.payload,
+              recebidoEm: formatDateTime(w.receivedAt),
+            }))}
+          />
+        </div>
+      </Card>
+
+      <Card className="mt-5">
         <SectionTitle title="Outras variáveis usadas pelo sistema" />
         <ul className="grid gap-2 text-xs text-ink-600 sm:grid-cols-2 lg:grid-cols-3">
           {[
@@ -116,6 +167,7 @@ export default async function IntegrationsPage() {
             ['OPENAI_API_KEY', 'Assistente CSCX'],
             ['OPENAI_MODEL', 'Modelo usado (padrão gpt-4o-mini)'],
             ['CRON_SECRET', 'Protege o endpoint da rotina diária'],
+            ['CADEMI_WEBHOOK_SECRET', 'Chave do webhook da Cademí'],
             ['POWERBI_API_KEY', 'Autentica o feed JSON do Power BI'],
             ['LMS_STUDENT_URL', 'Link do ambiente do aluno nas mensagens'],
             ['WELCOME_VIDEO_URL', 'Vídeo institucional do onboarding'],

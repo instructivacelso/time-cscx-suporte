@@ -72,6 +72,9 @@ export const DEFAULT_THRESHOLDS: HealthThresholds = {
   RISCO: 40,
 };
 
+/** Dias de carência para alunos recém-matriculados. */
+export const GRACE_DAYS = 7;
+
 export type HealthBandValue = 'EXCELENTE' | 'SAUDAVEL' | 'ATENCAO' | 'RISCO' | 'CRITICO';
 
 export const BAND_LABELS: Record<HealthBandValue, string> = {
@@ -104,6 +107,8 @@ export interface HealthInput {
   mentorshipsOffered: number;
   mentorshipsAttended: number;
   openComplaints: number;
+  /** Dias desde a matrícula. Alunos recém-chegados ganham carência. */
+  daysSinceEnrollment?: number;
 }
 
 export interface IndicatorResult {
@@ -327,9 +332,22 @@ export function computeHealthScore(
     };
   });
 
-  const score = clamp(r0(breakdown.reduce((sum, b) => sum + b.weightedScore, 0)));
+  const bruto = clamp(r0(breakdown.reduce((sum, b) => sum + b.weightedScore, 0)));
+
+  /**
+   * Carência do aluno novo: nos primeiros dias ninguém tem histórico de
+   * estudo, então todos os indicadores nascem zerados e a nota cairia para a
+   * faixa crítica sem que nada de errado tenha acontecido. Durante a carência
+   * a nota não desce abaixo da faixa de Atenção — o aluno aparece para a
+   * equipe cuidar, mas não como risco de evasão.
+   */
+  const diasDesdeMatricula = input.daysSinceEnrollment ?? Number.POSITIVE_INFINITY;
+  const emCarencia = diasDesdeMatricula <= GRACE_DAYS;
+  const piso = thresholds.ATENCAO;
+  const score = emCarencia ? Math.max(bruto, piso) : bruto;
+
   const band = bandFor(score, thresholds);
-  const churnRisk = estimateChurnRisk(input, score);
+  const churnRisk = emCarencia ? Math.min(estimateChurnRisk(input, score), 20) : estimateChurnRisk(input, score);
 
   const worst = [...breakdown].sort((a, b) => {
     const lossA = ((100 - a.rawScore) * a.normalizedWeight) / 100;
@@ -343,12 +361,16 @@ export function computeHealthScore(
     .map((b) => `${b.label}: ${b.reason}`);
 
   const bestLabel = [...breakdown].sort((a, b) => b.rawScore - a.rawScore)[0];
+  const notaCarencia = emCarencia
+    ? ` Aluno matriculado há ${Math.max(0, Math.round(diasDesdeMatricula))} dia(s): durante os primeiros ${GRACE_DAYS} dias a nota não desce da faixa de Atenção, porque ainda não há histórico suficiente para avaliar.`
+    : '';
+
   const summary =
     topRisks.length === 0
       ? `Score ${score}/100 (${BAND_LABELS[band]}). Todos os indicadores estão saudáveis; destaque para ${bestLabel.label}.`
       : `Score ${score}/100 (${BAND_LABELS[band]}). Maior perda de pontos em ${worst[0].label} (${worst[0].rawScore}/100), seguido de ${worst[1]?.label ?? '—'}. Ponto forte: ${bestLabel.label} (${bestLabel.rawScore}/100).`;
 
-  return { score, band, churnRisk, breakdown, summary, topRisks };
+  return { score, band, churnRisk, breakdown, summary: summary + notaCarencia, topRisks };
 }
 
 /** Texto pronto para exibir o "porquê" da nota. */
