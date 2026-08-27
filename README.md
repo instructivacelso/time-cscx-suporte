@@ -110,14 +110,20 @@ Todos com a senha `cscx2026` (ou o valor de `SEED_PASSWORD`):
 1. **Novo projeto** → *Deploy from GitHub repo* → selecione este repositório.
 2. **Adicione o PostgreSQL**: *New → Database → Add PostgreSQL*. O Railway injeta
    `DATABASE_URL` automaticamente no serviço da aplicação.
+   > Confirme que a variável aparece no serviço da aplicação (e não só no banco).
+   > Se não aparecer, adicione `DATABASE_URL = ${{Postgres.DATABASE_URL}}`.
 3. **Variáveis**: na aba *Variables* do serviço, defina no mínimo:
    ```
    AUTH_SECRET=<openssl rand -base64 32>
    APP_URL=https://<seu-app>.up.railway.app
    ```
    As demais são opcionais e ativam cada integração (veja abaixo).
-4. **Deploy**: o `railway.json` já define build e start. O start roda
-   `drizzle-kit push` antes de subir, então o schema é aplicado sozinho.
+   Não é preciso definir `NODE_ENV` nem `PORT` — o Railway cuida disso.
+4. **Deploy**: o Nixpacks detecta o Node pelo arquivo `.node-version`, roda
+   `npm ci` e `npm run build`. Na subida, `scripts/start.mjs` aplica o schema no
+   banco (`drizzle-kit push`) e inicia o servidor em `0.0.0.0:$PORT`.
+   Se o banco ainda não estiver ligado, o app sobe mesmo assim e registra o aviso
+   no log — nada de contêiner reiniciando em loop.
 5. **Popular a base** (opcional, só na primeira vez):
    ```bash
    railway run npm run db:seed
@@ -125,6 +131,22 @@ Todos com a senha `cscx2026` (ou o valor de `SEED_PASSWORD`):
 6. **Rotina diária**: crie um *Cron* no Railway chamando
    `POST https://<seu-app>.up.railway.app/api/cron/rotina` com o header
    `x-cron-key: $CRON_SECRET`, uma vez por dia (sugestão: 06:00 BRT → `0 9 * * *` em UTC).
+
+### Se o build falhar
+
+Todas as dependências necessárias ao build (TypeScript, Tailwind, PostCSS,
+drizzle-kit) estão em `dependencies`, e não em `devDependencies` — assim o build
+funciona mesmo quando a plataforma instala em modo produção. Para reproduzir o
+ambiente do Railway na sua máquina:
+
+```bash
+rm -rf node_modules
+NODE_ENV=production npm ci
+NODE_ENV=production npm run build
+```
+
+Se passar aqui e falhar lá, o log do Railway (*Deployments → build log*) aponta
+a linha exata.
 
 ---
 
