@@ -107,37 +107,50 @@ Todos com a senha `cscx2026` (ou o valor de `SEED_PASSWORD`):
 
 ## Deploy no Railway
 
+O projeto traz um **Dockerfile** na raiz e o `railway.json` já aponta para ele.
+O Railway constrói a imagem direto, sem passar pelo Nixpacks — o que evita a
+falha de *cache mount* do builder (`runc run failed ... error mounting`).
+
 1. **Novo projeto** → *Deploy from GitHub repo* → selecione este repositório.
-2. **Adicione o PostgreSQL**: *New → Database → Add PostgreSQL*. O Railway injeta
-   `DATABASE_URL` automaticamente no serviço da aplicação.
-   > Confirme que a variável aparece no serviço da aplicação (e não só no banco).
-   > Se não aparecer, adicione `DATABASE_URL = ${{Postgres.DATABASE_URL}}`.
-3. **Variáveis**: na aba *Variables* do serviço, defina no mínimo:
+2. **Adicione o PostgreSQL**: *New → Database → Add PostgreSQL*.
+3. **Variáveis** — aba *Variables* do serviço da aplicação:
    ```
-   AUTH_SECRET=<openssl rand -base64 32>
-   APP_URL=https://<seu-app>.up.railway.app
+   DATABASE_URL = ${{Postgres.DATABASE_URL}}
+   AUTH_SECRET  = <openssl rand -base64 32>
+   APP_URL      = https://<seu-app>.up.railway.app
    ```
-   As demais são opcionais e ativam cada integração (veja abaixo).
-   Não é preciso definir `NODE_ENV` nem `PORT` — o Railway cuida disso.
-4. **Deploy**: o Nixpacks detecta o Node pelo arquivo `.node-version`, roda
-   `npm ci` e `npm run build`. Na subida, `scripts/start.mjs` aplica o schema no
-   banco (`drizzle-kit push`) e inicia o servidor em `0.0.0.0:$PORT`.
-   Se o banco ainda não estiver ligado, o app sobe mesmo assim e registra o aviso
-   no log — nada de contêiner reiniciando em loop.
-5. **Popular a base** (opcional, só na primeira vez):
+   Não defina `NODE_ENV` nem `PORT` — a plataforma cuida disso.
+4. **Sem volume no serviço da aplicação.** O CSCX não guarda arquivos em disco;
+   quem precisa de volume é o PostgreSQL. Um volume montado em `/app` sobrescreve
+   a imagem e quebra o deploy — se existir um, remova em *Settings → Volumes*.
+5. **Gere o domínio**: *Settings → Networking → Generate Domain*. Sem isso o
+   serviço fica como *Unexposed* e não abre no navegador.
+6. **Popular a base** (opcional, só na primeira vez):
    ```bash
    railway run npm run db:seed
    ```
-6. **Rotina diária**: crie um *Cron* no Railway chamando
+7. **Rotina diária**: crie um *Cron* chamando
    `POST https://<seu-app>.up.railway.app/api/cron/rotina` com o header
-   `x-cron-key: $CRON_SECRET`, uma vez por dia (sugestão: 06:00 BRT → `0 9 * * *` em UTC).
+   `x-cron-key: $CRON_SECRET`, uma vez por dia
+   (sugestão: 06:00 BRT → `0 9 * * *` em UTC).
 
-### Se o build falhar
+Na subida, `scripts/start.mjs` aplica o schema no banco (`drizzle-kit push`) e
+inicia o servidor em `0.0.0.0:$PORT`. Se o banco ainda não estiver ligado, o app
+sobe assim mesmo e registra o aviso no log — nada de contêiner reiniciando em loop.
 
-Todas as dependências necessárias ao build (TypeScript, Tailwind, PostCSS,
-drizzle-kit) estão em `dependencies`, e não em `devDependencies` — assim o build
-funciona mesmo quando a plataforma instala em modo produção. Para reproduzir o
-ambiente do Railway na sua máquina:
+### Reproduzindo o build da nuvem na sua máquina
+
+Com Docker:
+
+```bash
+docker build -t cscx .
+docker run -p 3000:3000 \
+  -e DATABASE_URL=postgresql://... \
+  -e AUTH_SECRET=$(openssl rand -base64 32) \
+  cscx
+```
+
+Sem Docker (simula a instalação em modo produção):
 
 ```bash
 rm -rf node_modules
@@ -145,8 +158,14 @@ NODE_ENV=production npm ci
 NODE_ENV=production npm run build
 ```
 
-Se passar aqui e falhar lá, o log do Railway (*Deployments → build log*) aponta
-a linha exata.
+Todas as dependências necessárias ao build (TypeScript, Tailwind, PostCSS,
+drizzle-kit) estão em `dependencies`, e não em `devDependencies` — assim o build
+funciona mesmo quando a plataforma instala em modo produção.
+
+> **Enviando o código para o GitHub:** prefira `git push` ao botão
+> *Add files via upload* da interface web, que costuma perder arquivos em pastas
+> aninhadas. Depois de subir, confira se `src/`, `scripts/`, `public/`,
+> `package-lock.json` e o `Dockerfile` estão todos lá.
 
 ---
 
