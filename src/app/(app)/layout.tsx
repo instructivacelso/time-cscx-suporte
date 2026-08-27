@@ -61,7 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         [
           { href: '/equipe', label: 'Equipe', icon: 'users' },
           { href: '/integracoes', label: 'Integrações', icon: 'plug' },
-          { href: '/configuracoes', label: 'Health Score', icon: 'settings' },
+          { href: '/configuracoes', label: 'Configurações', icon: 'settings' },
           { href: '/auditoria', label: 'Auditoria', icon: 'scroll' },
         ] as NavItem[]
       ).filter((i) => {
