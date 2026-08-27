@@ -91,8 +91,18 @@ export function lerPayload(body: unknown): CademiPayload {
 
   const emailBruto = texto(acharNoUsuario(['email', 'emailaluno', 'emailusuario', 'usuarioemail']));
 
-  const tipoBruto = buscar(body, ['eventtype', 'evento', 'tipo', 'type']);
-  const eventType = isObj(tipoBruto) ? null : texto(tipoBruto);
+  // A Cademí manda `"event": "user.created"` (texto), mas outras plataformas usam
+  // `event` como objeto. Procuramos chave por chave e ficamos com a primeira que
+  // vier como texto.
+  const CHAVES_EVENTO = ['eventtype', 'event', 'evento', 'tipo', 'type', 'acao', 'action'];
+  let eventType: string | null = null;
+  for (const chave of CHAVES_EVENTO) {
+    const valor = buscar(body, [chave]);
+    if (valor !== undefined && !isObj(valor) && !Array.isArray(valor)) {
+      eventType = texto(valor);
+      if (eventType) break;
+    }
+  }
 
   return {
     eventType,
@@ -120,11 +130,16 @@ export type AcaoCademi =
 
 export function classificar(eventType: string | null): AcaoCademi {
   const e = (eventType ?? '').toLowerCase();
-  if (e.includes('entrega') || e.includes('matricul') || e.includes('libera')) return 'CURSO_LIBERADO';
-  if (e.includes('certificad')) return 'CERTIFICADO';
-  if (e.includes('progress')) return 'PROGRESSO';
-  if (e.includes('prova') || e.includes('exam')) return 'PROVA';
-  if (e.includes('usuario') || e.includes('user') || e.includes('aluno')) return 'NOVO_ALUNO';
+  const tem = (...termos: string[]) => termos.some((t) => e.includes(t));
+
+  // A Cademí usa nomes em inglês no corpo ("user.created") e em português no
+  // painel ("Aluno criado"), então reconhecemos as duas formas.
+  if (tem('entrega', 'delivery', 'matricul', 'enroll', 'libera', 'grant', 'purchase'))
+    return 'CURSO_LIBERADO';
+  if (tem('certific')) return 'CERTIFICADO';
+  if (tem('progress')) return 'PROGRESSO';
+  if (tem('prova', 'exam', 'quiz')) return 'PROVA';
+  if (tem('usuario', 'user', 'aluno', 'student', 'member')) return 'NOVO_ALUNO';
   return 'IGNORAR';
 }
 
@@ -225,7 +240,9 @@ export async function processarWebhookCademi(body: unknown): Promise<ResultadoCa
   const { aluno, novo } = await garantirAluno(dados);
   let message = novo ? 'Aluno criado e onboarding iniciado.' : 'Aluno já existia.';
 
-  if (acao === 'CURSO_LIBERADO' && dados.produto) {
+  // Alguns eventos de criação de aluno já vêm com o produto liberado junto —
+  // nesse caso a matrícula sai na mesma hora.
+  if ((acao === 'CURSO_LIBERADO' || acao === 'NOVO_ALUNO') && dados.produto) {
     const curso = await garantirCurso(dados.produto);
     await db
       .insert(enrollments)
