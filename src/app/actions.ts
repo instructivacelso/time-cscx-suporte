@@ -59,6 +59,39 @@ export async function addInteractionAction(formData: FormData) {
   revalidatePath(`/alunos/${studentId}`);
 }
 
+/**
+ * Registra no histórico que a equipe chamou o aluno no WhatsApp.
+ * Chamado pelo botão "Chamar no WhatsApp", logo depois de abrir a conversa.
+ */
+export async function logWhatsappContactAction(input: {
+  studentId: string;
+  assunto: string;
+  conteudo: string;
+}) {
+  const session = await requireSession();
+  assertCan(session.role, 'interacao.create');
+
+  await db.insert(interactions).values({
+    studentId: input.studentId,
+    userId: session.id,
+    channel: 'WHATSAPP' as never,
+    direction: 'SAIDA' as never,
+    subject: input.assunto,
+    content: input.conteudo,
+  });
+
+  await recordAudit({
+    userId: session.id,
+    action: 'CONTATO',
+    entity: 'student',
+    entityId: input.studentId,
+    summary: `Contato por WhatsApp: ${input.assunto}`,
+  });
+
+  revalidatePath(`/alunos/${input.studentId}`);
+  return { ok: true as const };
+}
+
 export async function updateStudentNotesAction(formData: FormData) {
   const session = await requireSession();
   assertCan(session.role, 'aluno.edit');

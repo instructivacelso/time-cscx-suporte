@@ -25,6 +25,8 @@ import {
   StatusBadge,
 } from '@/components/ui';
 import { HealthBreakdown } from '@/components/health-breakdown';
+import { WhatsappButton } from '@/components/whatsapp-button';
+import { montarModelosWhatsapp } from '@/lib/whatsapp-templates';
 import { AiPanel } from '@/components/ai-panel';
 import { HealthHistoryChart, StudyChart } from '@/components/charts';
 import { getStudent360, studySummary } from '@/server/student-service';
@@ -135,6 +137,21 @@ export default async function StudentPage({
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {can(session?.role, 'interacao.create') && (
+              <WhatsappButton
+                studentId={s.student.id}
+                nome={s.student.name}
+                telefone={s.student.phone}
+                modelos={montarModelosWhatsapp({
+                  nome: s.student.name,
+                  curso: s.enrollments[0]?.course?.name ?? null,
+                  diasSemAcesso: s.student.daysWithoutAccess,
+                  progresso: s.student.progressPercent,
+                  etapa: STAGE_LABELS[s.student.stage],
+                  linkAmbiente: process.env.LMS_STUDENT_URL ?? null,
+                })}
+              />
+            )}
             {can(session?.role, 'aluno.healthScore.update') && (
               <form action={recalcStudentAction}>
                 <input type="hidden" name="studentId" value={s.student.id} />
