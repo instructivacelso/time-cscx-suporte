@@ -7,6 +7,7 @@ import { formatDateTime, num } from '@/lib/format';
 import { createUserAction, toggleUserAction } from '@/app/actions';
 import { getSession } from '@/lib/auth';
 import { can } from '@/lib/rbac';
+import { UserActions } from './user-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,7 @@ export default async function TeamPage() {
                   <th className="th">Tarefas</th>
                   <th className="th">Último acesso</th>
                   <th className="th">Status</th>
+                  {manage && <th className="th text-right">Ações</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -154,6 +156,22 @@ export default async function TeamPage() {
                         </Badge>
                       )}
                     </td>
+                    {manage && (
+                      <td className="td">
+                        <div className="flex justify-end">
+                          <UserActions
+                            usuario={{
+                              id: r.user.id,
+                              name: r.user.name,
+                              email: r.user.email,
+                              role: r.user.role,
+                              avatarColor: r.user.avatarColor,
+                            }}
+                            souEu={r.user.id === session?.id}
+                          />
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

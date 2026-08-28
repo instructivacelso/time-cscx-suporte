@@ -148,11 +148,17 @@ export function AppShell({
 
       <div className="border-t border-white/10 p-3">
         <div className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5">
-          <Avatar name={user.name} color={user.avatarColor} size={34} />
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-sm font-medium text-white">{user.name}</div>
-            <div className="truncate text-[11px] text-white/45">{ROLE_LABELS[user.role]}</div>
-          </div>
+          <Link
+            href="/conta"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg transition hover:opacity-80"
+            title="Minha conta"
+          >
+            <Avatar name={user.name} color={user.avatarColor} size={34} />
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-sm font-medium text-white">{user.name}</span>
+              <span className="block truncate text-[11px] text-white/45">{ROLE_LABELS[user.role]}</span>
+            </span>
+          </Link>
           <ThemeToggle tone="dark" className="h-8 w-8 rounded-lg" />
           <form action="/api/auth/logout" method="post">
             <button

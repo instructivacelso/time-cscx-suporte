@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import {
   actionPlans,
@@ -14,7 +14,7 @@ import {
   tasks,
   users,
 } from '@/db/schema';
-import { requireSession } from '@/lib/auth';
+import { createSession, requireSession, verifyPassword } from '@/lib/auth';
 import { assertCan } from '@/lib/rbac';
 import { recordAudit } from '@/lib/audit';
 import { hashPassword } from '@/lib/auth';
@@ -454,6 +454,157 @@ export async function createUserAction(formData: FormData) {
     entity: 'user',
     summary: `Usuário criado: ${email}`,
   });
+  revalidatePath('/equipe');
+}
+
+/** Edita um usuário da equipe. A senha só muda se for preenchida. */
+export async function updateUserAction(formData: FormData) {
+  const session = await requireSession();
+  assertCan(session.role, 'equipe.manage');
+
+  const id = String(formData.get('userId'));
+  const nome = String(formData.get('name') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim().toLowerCase();
+  const role = String(formData.get('role') ?? 'ANALISTA');
+  const cor = String(formData.get('avatarColor') ?? '#3366ff');
+  const novaSenha = String(formData.get('password') ?? '');
+
+  if (!nome || !email) return { ok: false as const, error: 'Nome e e-mail são obrigatórios.' };
+  if (novaSenha && novaSenha.length < 6) {
+    return { ok: false as const, error: 'A senha precisa ter ao menos 6 caracteres.' };
+  }
+
+  const [alvo] = await db.select().from(users).where(eq(users.id, id));
+  if (!alvo) return { ok: false as const, error: 'Usuário não encontrado.' };
+
+  // Não deixar o sistema ficar sem nenhum administrador ativo.
+  if (alvo.role === 'ADMIN' && role !== 'ADMIN') {
+    const [{ n }] = (await db.execute(
+      sql`select count(*)::int as n from users where role = 'ADMIN' and active`,
+    )) as unknown as { n: number }[];
+    if (Number(n) <= 1) {
+      return { ok: false as const, error: 'Este é o único administrador ativo. Promova outro antes de mudar o perfil deste.' };
+    }
+  }
+
+  try {
+    await db
+      .update(users)
+      .set({
+        name: nome,
+        email,
+        role: role as never,
+        avatarColor: cor,
+        ...(novaSenha ? { passwordHash: await hashPassword(novaSenha) } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, id));
+  } catch {
+    return { ok: false as const, error: 'Já existe outro usuário com esse e-mail.' };
+  }
+
+  await recordAudit({
+    userId: session.id,
+    action: 'UPDATE',
+    entity: 'user',
+    entityId: id,
+    summary: `Usuário atualizado: ${email}${novaSenha ? ' (senha redefinida)' : ''}`,
+  });
+  revalidatePath('/equipe');
+  return { ok: true as const };
+}
+
+/**
+ * Exclui um usuário da equipe.
+ * Alunos, tarefas e registros que apontavam para ele ficam sem responsável —
+ * nada é apagado junto, só perde o vínculo.
+ */
+export async function deleteUserAction(formData: FormData) {
+  const session = await requireSession();
+  assertCan(session.role, 'equipe.manage');
+
+  const id = String(formData.get('userId'));
+  if (id === session.id) {
+    return { ok: false as const, error: 'Você não pode excluir a sua própria conta.' };
+  }
+
+  const [alvo] = await db.select().from(users).where(eq(users.id, id));
+  if (!alvo) return { ok: false as const, error: 'Usuário não encontrado.' };
+
+  if (alvo.role === 'ADMIN') {
+    const [{ n }] = (await db.execute(
+      sql`select count(*)::int as n from users where role = 'ADMIN' and active`,
+    )) as unknown as { n: number }[];
+    if (Number(n) <= 1) {
+      return { ok: false as const, error: 'Este é o único administrador. Crie outro antes de excluir este.' };
+    }
+  }
+
+  await db.delete(users).where(eq(users.id, id));
+
+  await recordAudit({
+    userId: session.id,
+    action: 'DELETE',
+    entity: 'user',
+    entityId: id,
+    summary: `Usuário excluído: ${alvo.email}`,
+  });
+  revalidatePath('/equipe');
+  return { ok: true as const };
+}
+
+/** Troca a senha da própria conta, exigindo a senha atual. */
+export async function changeMyPasswordAction(input: {
+  senhaAtual: string;
+  novaSenha: string;
+  confirmacao: string;
+}) {
+  const session = await requireSession();
+
+  if (input.novaSenha.length < 6) {
+    return { ok: false as const, error: 'A nova senha precisa ter ao menos 6 caracteres.' };
+  }
+  if (input.novaSenha !== input.confirmacao) {
+    return { ok: false as const, error: 'A confirmação não confere com a nova senha.' };
+  }
+
+  const [eu] = await db.select().from(users).where(eq(users.id, session.id));
+  if (!eu) return { ok: false as const, error: 'Conta não encontrada.' };
+
+  const confere = await verifyPassword(input.senhaAtual, eu.passwordHash);
+  if (!confere) return { ok: false as const, error: 'A senha atual está incorreta.' };
+
+  await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(input.novaSenha), updatedAt: new Date() })
+    .where(eq(users.id, session.id));
+
+  await recordAudit({
+    userId: session.id,
+    action: 'UPDATE',
+    entity: 'user',
+    entityId: session.id,
+    summary: 'Senha alterada pelo próprio usuário',
+  });
+  return { ok: true as const };
+}
+
+/** Atualiza nome e cor do avatar da própria conta. */
+export async function updateMyProfileAction(formData: FormData) {
+  const session = await requireSession();
+  const nome = String(formData.get('name') ?? '').trim();
+  const cor = String(formData.get('avatarColor') ?? session.avatarColor);
+  if (!nome) return;
+
+  await db
+    .update(users)
+    .set({ name: nome, avatarColor: cor, updatedAt: new Date() })
+    .where(eq(users.id, session.id));
+
+  // A sessão guarda nome e cor — renova para a interface refletir na hora.
+  await createSession({ ...session, name: nome, avatarColor: cor });
+
+  revalidatePath('/conta');
   revalidatePath('/equipe');
 }
 
