@@ -1,0 +1,268 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────
+   Tokens de cor — tema claro
+   Os neutros e superfícies são variáveis, então a mesma classe
+   utilitária serve para os dois temas.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-display: var(--font-sans);
+
+  /* Marca — laranja do símbolo da Escola Instructiva */
+  --brand-50: 255 244 235;
+  --brand-100: 255 230 209;
+  --brand-200: 255 205 163;
+  --brand-300: 255 172 107;
+  --brand-400: 255 138 61;
+  --brand-500: 250 113 21;
+  --brand-600: 232 88 6;
+  --brand-700: 192 65 8;
+  --brand-800: 152 51 15;
+  --brand-900: 124 44 17;
+
+  /* Neutros quentes */
+  --canvas: 247 246 244;
+  --surface: 255 255 255;
+  --surface-2: 246 245 242;
+  --surface-3: 238 236 232;
+  --line: 230 227 222;
+
+  --ink-50: 250 250 249;
+  --ink-100: 243 242 240;
+  --ink-200: 231 229 225;
+  --ink-300: 213 210 204;
+  --ink-400: 163 159 151;
+  --ink-500: 124 120 112;
+  --ink-600: 95 91 85;
+  --ink-700: 72 69 64;
+  --ink-800: 52 50 47;
+  --ink-900: 35 33 31;
+  --ink-950: 24 23 21;
+
+  --health-excellent: 13 148 96;
+  --health-healthy: 34 165 96;
+  --health-attention: 217 152 0;
+  --health-risk: 226 116 24;
+  --health-critical: 216 51 47;
+
+  --shadow: 24 23 21;
+
+  color-scheme: light;
+}
+
+/* ───────────────────────────── tema escuro ───────────────────────────── */
+.dark {
+  --brand-50: 62 27 8;
+  --brand-100: 88 38 10;
+  --brand-200: 124 52 13;
+  --brand-300: 168 72 16;
+  --brand-400: 214 96 20;
+  --brand-500: 246 124 42;
+  --brand-600: 255 148 71;
+  --brand-700: 255 176 116;
+  --brand-800: 255 202 160;
+  --brand-900: 255 224 199;
+
+  --canvas: 17 17 19;
+  --surface: 26 26 29;
+  --surface-2: 34 34 38;
+  --surface-3: 44 44 49;
+  --line: 48 48 54;
+
+  --ink-50: 26 26 29;
+  --ink-100: 36 36 40;
+  --ink-200: 50 50 56;
+  --ink-300: 72 72 79;
+  --ink-400: 122 121 128;
+  --ink-500: 155 153 160;
+  --ink-600: 183 181 187;
+  --ink-700: 208 206 211;
+  --ink-800: 226 224 229;
+  --ink-900: 240 239 242;
+  --ink-950: 250 250 252;
+
+  --health-excellent: 52 199 132;
+  --health-healthy: 74 206 122;
+  --health-attention: 240 185 51;
+  --health-risk: 248 150 62;
+  --health-critical: 248 104 100;
+
+  --shadow: 0 0 0;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: rgb(var(--canvas));
+  color: rgb(var(--ink-900));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(var(--brand-500) / 0.22);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--ink-300)) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--ink-300));
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* Sem transição na troca de tema para não “piscar” a tela inteira */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-card;
+  }
+
+  .card-pad {
+    @apply p-4 sm:p-5;
+  }
+
+  .card-hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-pop;
+  }
+
+  .label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-ink-500;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  select.input {
+    @apply cursor-pointer;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-500 active:bg-brand-700;
+  }
+
+  .btn-ghost {
+    @apply btn border border-line bg-surface text-ink-700 hover:bg-surface-2 hover:text-ink-900;
+  }
+
+  .btn-subtle {
+    @apply btn bg-surface-2 text-ink-700 hover:bg-surface-3 hover:text-ink-900;
+  }
+
+  .btn-danger {
+    @apply btn bg-health-critical text-white hover:brightness-110;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto rounded-xl border border-line bg-surface shadow-card;
+  }
+
+  .th {
+    @apply whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-500;
+  }
+
+  .td {
+    @apply whitespace-nowrap px-4 py-3 text-sm text-ink-800;
+  }
+
+  .row-hover {
+    @apply transition-colors hover:bg-brand-50/60;
+  }
+
+  .surface-grid {
+    background-image:
+      linear-gradient(rgb(var(--line) / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--line) / 0.5) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+.prose-cscx h1,
+.prose-cscx h2,
+.prose-cscx h3 {
+  @apply mb-2 mt-4 font-semibold text-ink-900;
+}
+.prose-cscx h1 {
+  @apply text-lg;
+}
+.prose-cscx h2 {
+  @apply text-base;
+}
+.prose-cscx p {
+  @apply mb-3 text-sm leading-relaxed text-ink-700;
+}
+.prose-cscx ul {
+  @apply mb-3 list-disc space-y-1 pl-5 text-sm text-ink-700;
+}
+.prose-cscx ol {
+  @apply mb-3 list-decimal space-y-1 pl-5 text-sm text-ink-700;
+}
+.prose-cscx strong {
+  @apply font-semibold text-ink-900;
+}
+.prose-cscx code {
+  @apply rounded bg-surface-2 px-1 py-0.5 text-xs;
+}
+
+@media print {
+  /* Impressão sempre no tema claro, mesmo com o modo escuro ativo. */
+  :root,
+  .dark {
+    --canvas: 255 255 255;
+    --surface: 255 255 255;
+    --surface-2: 246 245 242;
+    --surface-3: 238 236 232;
+    --line: 214 211 205;
+    --ink-50: 250 250 249;
+    --ink-100: 243 242 240;
+    --ink-200: 231 229 225;
+    --ink-300: 200 197 190;
+    --ink-400: 140 136 128;
+    --ink-500: 105 101 94;
+    --ink-600: 80 77 71;
+    --ink-700: 60 57 53;
+    --ink-800: 42 40 37;
+    --ink-900: 28 26 24;
+    --ink-950: 17 16 15;
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+}
